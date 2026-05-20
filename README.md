@@ -135,6 +135,7 @@ cd stock-strategies-only
 ### Step 5：設定 FinMind
 
 到 [finmindtrade.com](https://finmindtrade.com/) 免費註冊，登入後在個人頁面取得 API Token。
+至 FinMind 官網註冊並驗證信箱後，API 的 Request 加上 `token` 參數可以提高使用上限到 **600/hr**。
 
 ### Step 6：本機測試
 
@@ -349,7 +350,7 @@ stock-strategies-only/
 <details>
 <summary><b>FinMind 免費帳號有請求限制嗎？</b></summary>
 
-有，免費帳號每天約 600 次請求。每檔股票需要 2 次（財報 + K 線），所以觀察清單 **300 檔以內**不會超限。一般散戶追蹤 10-50 檔完全沒問題。
+有，至 FinMind 官網註冊並驗證信箱後，API 的 Request 加上 `token` 參數可以提高使用上限到 **600/hr**。每檔股票需要 2 次（財報 + K 線），所以觀察清單 **300 檔以內**通常不會超過單小時額度。一般散戶追蹤 10-50 檔完全沒問題。
 
 </details>
 
