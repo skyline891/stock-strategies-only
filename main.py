@@ -63,7 +63,7 @@ def main():
         send_telegram(msg)
         time.sleep(0.5)
 
-    print("[OK] 完成")
+    print("✅ 完成")
 
 
 if __name__ == "__main__":
