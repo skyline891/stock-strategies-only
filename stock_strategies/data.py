@@ -1,4 +1,5 @@
 import os
+import time
 from datetime import datetime, timedelta
 
 import requests
@@ -7,16 +8,46 @@ import pandas as pd
 from .config import FINMIND_URL
 
 
-def fetch_finmind(dataset: str, stock_id: str, start_date: str) -> pd.DataFrame:
+def fetch_finmind(
+    dataset: str,
+    stock_id: str,
+    start_date: str,
+    timeout: int = 30,
+    max_retries: int = 2,
+) -> pd.DataFrame:
+    """FinMind GET with retry + timeout 30s.
+    對 timeout / connection error 自動 retry，間隔 exponential backoff (1s, 2s)。
+    """
     params = {
         "dataset": dataset,
         "data_id": stock_id,
         "start_date": start_date,
         "token": os.environ["FINMIND_TOKEN"],
     }
-    r = requests.get(FINMIND_URL, params=params, timeout=20)
-    r.raise_for_status()
-    return pd.DataFrame(r.json().get("data", []))
+    last_err: Exception | None = None
+    for attempt in range(max_retries + 1):
+        try:
+            r = requests.get(FINMIND_URL, params=params, timeout=timeout)
+            r.raise_for_status()
+            return pd.DataFrame(r.json().get("data", []))
+        except (
+            requests.exceptions.Timeout,
+            requests.exceptions.ConnectionError,
+            requests.exceptions.ChunkedEncodingError,
+        ) as e:
+            last_err = e
+            if attempt < max_retries:
+                wait = 1.0 * (2 ** attempt)
+                print(
+                    f"[finmind] {dataset}/{stock_id} {type(e).__name__}, "
+                    f"retry {attempt + 1}/{max_retries} after {wait:.1f}s"
+                )
+                time.sleep(wait)
+                continue
+            raise
+    if last_err:
+        raise last_err
+    return pd.DataFrame()
 
 
 def get_price_history(stock_id: str, years: int = 3) -> pd.DataFrame:

@@ -11,6 +11,47 @@
 
 ---
 
+## 📣 感謝大家的支持！
+
+沒想到這個小專案會這麼受歡迎 🙏 真心感謝每一位 Star、Fork、回報問題與提出建議的朋友。
+
+接下來會**持續更新**，重點方向：
+
+- 🎨 **全新 UI / UX** — 不再只有 Telegram 通知，將推出互動式網頁 Dashboard（今日訊號表、個股卡片、Performance 回測曲線）
+- 🤖 **Multi-Agent 互動介面** — 結合 CopilotKit + LangGraph，讓你直接「跟 AI 對話」管理觀察清單、重跑選股、做 what-if 回測
+
+敬請期待，也歡迎繼續提 issue 與 PR 一起把它做得更好！
+
+---
+
+## 🆕 V3.3 — 策略庫 + AI 生策略 Web UI
+
+過去只有 Telegram 通知，這版開始有了**完整的互動式網頁介面**。`main.py` 的單一寫死策略也重構成「**參數化策略**」，每個策略 = `strategies/<id>.json` 一份檔案，可在網頁上建立、調參、執行。
+
+新增兩個服務：
+
+- **FastAPI 後端** (`api/`)：策略 CRUD、Gemini 自動生策略、用任一策略執行 watchlist
+- **Next.js 前端** (`web/`)：策略庫列表、手動建立表單、AI 生策略（自然語言 → JSON）、Dashboard
+
+> 介面預覽截圖在最下方 → [🖼️ Web UI 介面預覽](#-web-ui-介面預覽)
+
+### 啟動方式（兩個 terminal）
+
+```bash
+# Terminal 1 — 後端
+uv sync
+uv run uvicorn api.main:app --reload --port 8000
+
+# Terminal 2 — 前端
+cd web && npm install && npm run dev
+```
+
+開 http://localhost:3000 即可。需新增環境變數 `GEMINI_API_KEY`（AI 生策略用，可選）。詳見 [`web/README.md`](web/README.md) 與 [`strategies/SCHEMA.md`](strategies/SCHEMA.md)。
+
+原本的 `main.py` 走排程跑 default 策略，跟新 UI 完全相容。
+
+---
+
 ## 這是什麼？
 
 一個 **單檔 Python 腳本**，幫你每天自動做三件事：
@@ -401,7 +442,38 @@ Private repo 每月免費 2000 分鐘，這個 workflow 每次約 2 分鐘，每
 
 ---
 
+## 🖼️ Web UI 介面預覽
+
+**Dashboard — 一鍵執行今日選股**
+挑一個策略、按下執行，即時看到 watchlist 每檔的綜合分與 BUY / WATCH / SKIP 結果，並標出市場氛圍。
+
+![Dashboard](assets/dashboard.jpg)
+
+**策略庫 — 所有策略集中管理**
+每個策略一張卡片，列出 EPS / ROE 門檻、總分門檻、持有日等關鍵參數，可直接「跑一次」或新增。
+
+![策略庫](assets/strategy-library.jpg)
+
+**手動建立策略 — 全參數化表單**
+基本面門檻、回測與訊號、風險（停利 / 停損）、評分加權、技術訊號開關全部可調，所有欄位都有預設值。
+
+![手動建立策略](assets/strategy-create.jpg)
+
+**AI 生策略 — 用一句話生出參數**
+輸入「我想做短線動能，5–10 天持有，停損 -5%、停利 +15%」這類自然語言，Gemini 自動生出對應策略 JSON，可再微調後存進策略庫。
+
+![AI 生策略](assets/strategy-ai.jpg)
+
+---
+
 ## 🛣️ Roadmap
+
+**🚧 進行中（下一個大版本）**
+
+- [ ] 🎨 **互動式網頁 Dashboard** — 今日訊號表、個股詳情卡、Performance 回測曲線（Next.js + Tailwind）
+- [ ] 🤖 **Multi-Agent 對話介面** — CopilotKit + LangGraph，用對話管理 watchlist、重跑選股、what-if 回測
+
+**📋 規劃中**
 
 - [ ] 類股強弱前置過濾 — 順風類股才出訊號
 - [ ] 資金控管模組 — 追蹤總部位曝險
