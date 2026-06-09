@@ -4,6 +4,7 @@ V3.2 每日選股訊號系統
 新增：
 - 回測以「訊號日隔天開盤價」為進場（符合真實可執行）
 - 大盤濾鏡：加權指數跌破月線時，BUY 自動降為 WATCH
+- 夜盤情緒濾鏡：昨晚台指期夜盤大跌時，BUY 進一步降為 WATCH（風控）
 - 成績單：自動追蹤每個 BUY 在 T+1/T+5/T+10/T+20 的實際表現
 
 執行: uv run python main.py
@@ -29,6 +30,11 @@ from stock_strategies.sheet import (
 from stock_strategies.evaluate import evaluate
 from stock_strategies.notify import send_telegram, format_messages
 from stock_strategies.market import get_market_state, apply_market_filter
+from stock_strategies.night_session import (
+    get_night_session,
+    apply_night_filter,
+    night_filter_note,
+)
 from stock_strategies.performance import update_performance, summary as perf_summary
 
 
@@ -57,6 +63,12 @@ def main():
     market = get_market_state()
     print(f"  → {market['note']}")
 
+    # 2b. 取得昨晚夜盤（情緒風控濾鏡）
+    print("取得昨晚夜盤...")
+    night = get_night_session()
+    night_note = night_filter_note(night)
+    print(f"  → {night_note}")
+
     # 3. 個股評分
     results = []
     for i, row in enumerate(watchlist, 1):
@@ -72,6 +84,11 @@ def main():
     downgraded = apply_market_filter(results, market)
     if downgraded:
         print(f"⚠️ 大盤跌破月線，{downgraded} 檔 BUY 已自動降為 WATCH")
+
+    # 4b. 套用夜盤情緒濾鏡：昨晚夜盤大跌時 BUY 進一步降為 WATCH
+    night_downgraded = apply_night_filter(results, night)
+    if night_downgraded:
+        print(f"🌙 昨晚夜盤大跌，{night_downgraded} 檔 BUY 已自動降為 WATCH")
 
     order = {"BUY": 0, "WATCH": 1, "SKIP": 2, "ERROR": 3}
     results.sort(key=lambda x: (order.get(x.get("action"), 4), -x.get("signal_score", 0)))
@@ -106,7 +123,7 @@ def main():
 
     # 7. 發送 Telegram
     print("發送 Telegram...")
-    for msg in format_messages(results, watchlist, market=market):
+    for msg in format_messages(results, watchlist, market=market, night_note=night_note):
         send_telegram(msg)
         time.sleep(0.5)
 

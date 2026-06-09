@@ -1,5 +1,12 @@
 # 📈 台股每日選股機器人
 
+## 🌙 新功能（已上線）：夜盤盤前快報
+- 因為最近的夜盤台指期跌了三千多點，連帶 6/8 星期一股市也重挫——**夜盤是隔日台股盤勢的領先指標**，這版就把夜盤觀察機制做進來了。
+- 新增一支**早上 08:00 的盤前排程**：讀昨晚整段台指期夜盤，推播「今日開盤方向預判（大漲/小漲/平盤/小跌/大跌）」，並把前一天選出的 BUY/WATCH 疊上「夜盤順風🟢 / 逆風🔴」標籤。
+- 跟原本收盤後 14:30 的選股報告**互補**：晚上選股、隔天早上用夜盤校準方向。詳見 → [🌙 夜盤盤前快報](#-夜盤盤前快報詳解)
+- 這支程式還在星期天開盤前推薦過一支即使大盤被狂殺、依舊漲停的股票，也推薦了星期一可以「便宜加碼」的標的，還不錯～
+---
+
 > **基本面 × 技術面 × 歷史回測** — 全自動掃描、評分、推播  
 > 每天收盤後自動跑，Telegram 收通知，Google Sheet 存紀錄  
 > 零伺服器成本，GitHub Actions 免費跑
@@ -13,7 +20,7 @@
 
 ## 📣 感謝大家的支持！
 
-沒想到這個小專案會這麼受歡迎 🙏 真心感謝每一位 Star、Fork、回報問題與提出建議的朋友。
+沒想到這個小專案挺受歡迎 🙏 真心感謝每一位 Star、Fork、回報問題與提出建議的朋友。
 
 接下來會**持續更新**，重點方向：
 
@@ -49,6 +56,77 @@ cd web && npm install && npm run dev
 開 http://localhost:3000 即可。需新增環境變數 `GEMINI_API_KEY`（AI 生策略用，可選）。詳見 [`web/README.md`](web/README.md) 與 [`strategies/SCHEMA.md`](strategies/SCHEMA.md)。
 
 原本的 `main.py` 走排程跑 default 策略，跟新 UI 完全相容。
+
+---
+
+## 🌙 夜盤盤前快報（詳解）
+
+### 為什麼看夜盤？
+
+台指期**夜盤交易時段為 15:00 ～ 隔日 05:00**，這段時間涵蓋了歐美股市與國際消息的反應。隔天台股 09:00 開盤往往會「跳空」去貼齊夜盤的位置——所以**昨晚夜盤的漲跌，是今日台股開盤方向的領先參考**。6/8 那次台指期夜盤重挫三千多點，隔天現貨開盤就跟著大跌，就是最直接的例子。
+
+### 夜盤在系統裡的兩個角色
+
+夜盤訊號接在**兩個地方**，定位不同：
+
+| | 14:30 收盤後選股（`main.py`） | 🌙 08:00 盤前快報（`premarket.py`） |
+|---|---|---|
+| 夜盤角色 | **情緒風控濾鏡** | **開盤方向預測** |
+| 用哪段夜盤 | 昨晚（已反映在今收）→ 風控 | 昨晚（隔日就要開盤）→ 預測 |
+| 怎麼作用 | 昨晚夜盤**大跌** → BUY 自動降 WATCH；小跌標逆風；報告標頭顯示夜盤濾鏡狀態 | 推「今日開盤方向預判」+ 把昨日 BUY/WATCH 貼順風/逆風 |
+
+> **為什麼分兩處？** `main.py` 14:30 跑時，今晚夜盤還沒開始，只能拿到「昨晚」那段——它已反映在今天收盤價，所以在 main 裡定位是**風控**（夜盤重挫 → 隔日選股轉保守），而非精準開盤預測。真正「夜盤預測今日開盤」的角色，由隔天早上 08:00、夜盤收完後跑的盤前快報負責。兩者都**不重跑個股選股**，各只多打 1 次台指期 API，省 FinMind 額度。
+>
+> 註：夜盤是**大盤級**訊號，對 watchlist 每檔影響相同，若直接加進個股分數只會整體平移、不改變排名，因此設計成**門檻/濾鏡**（比照加權月線濾鏡）而非個股加分。
+
+### 開盤方向分類
+
+讀台指期夜盤近月（FinMind `TaiwanFuturesDaily` 的 `after_market` session），用漲跌幅分五級（門檻可在 `config.py` 調）：
+
+| 夜盤漲跌幅 | 預判 | 對昨日 BUY/WATCH 的標籤 |
+|---|---|---|
+| ≥ +1.5% | 🚀 大漲 | 夜盤順風🟢（回檔承接優於追高，留意開高走低） |
+| +0.5 ~ +1.5% | 🟢 小漲 | 夜盤順風🟢 |
+| −0.5 ~ +0.5% | ⚪ 平盤 | 夜盤中性⚪（看量價表態） |
+| −1.5 ~ −0.5% | 🟠 小跌 | 夜盤逆風🔴（等止穩再進） |
+| ≤ −1.5% | 🔴 大跌 | 夜盤逆風🔴（嚴設停損／觀望） |
+
+### 快報長這樣
+
+```
+🌙 夜盤盤前快報 2026/06/09 (週二)
+
+🚀 台指期夜盤 +2.13% (+916 點)
+近月收 43999 | 量 73,636
+📈 開盤方向預判：大漲 → 今日開盤偏多，留意開高走低、別追高
+
+📋 昨日訊號 × 夜盤對照 (2026-06-09)
+🟡 WATCH 6510 精測 50分 · 夜盤順風🟢
+🟡 WATCH 2330 台積電 50.2分 · 夜盤順風🟢
+🟡 WATCH 2357 華碩 50.6分 · 夜盤順風🟢
+↳ 夜盤偏多 — 回檔承接優於追高，開高別追、留意開高走低
+
+💡 夜盤僅領先參考，開盤後仍以實際量價為準
+```
+
+### 啟用方式
+
+本機先測一次（會真的發一則 Telegram）：
+
+```bash
+uv run python premarket.py
+```
+
+要排程自動跑，把 `premarket.yml` 一起搬進 `.github/workflows/`（secret 跟 `daily.yml` 共用，不用另外設）：
+
+```bash
+cp premarket.yml .github/workflows/premarket.yml
+git add . && git commit -m "setup: enable premarket workflow" && git push
+```
+
+之後每個交易日**台灣時間 08:00**（夜盤 05:00 收完、開盤 09:00 前）自動推播。週一會自動抓到上週五的夜盤；若 08:00 夜盤資料還沒更新，會取最近一筆並標明資料日期。
+
+> 微調門檻：改 `stock_strategies/config.py` 的 `night_gap_big`（大漲/大跌界線，預設 1.5%）與 `night_gap_small`（平盤界線，預設 0.5%）。
 
 ---
 
@@ -209,15 +287,16 @@ uv run python main.py
 | `GOOGLE_SHEET_ID` | 你的 Google Sheet ID |
 | `GOOGLE_CREDS_JSON` | Service Account JSON **整串貼進去** |
 
-把 `daily.yml` 搬到正確位置：
+把 workflow 搬到正確位置（兩支共用同一組 secret）：
 
 ```bash
 mkdir -p .github/workflows
-cp daily.yml .github/workflows/daily.yml
-git add . && git commit -m "setup: enable daily workflow" && git push
+cp daily.yml .github/workflows/daily.yml          # 收盤後 14:30 選股
+cp premarket.yml .github/workflows/premarket.yml  # 盤前 08:00 夜盤快報
+git add . && git commit -m "setup: enable daily + premarket workflow" && git push
 ```
 
-到 **Actions** 分頁點 **Run workflow** 手動跑一次測試。沒問題後，每個交易日**台灣時間 14:30** 會自動執行。
+到 **Actions** 分頁點 **Run workflow** 各手動跑一次測試。沒問題後，每個交易日**台灣時間 14:30**（選股）與 **08:00**（夜盤快報）會自動執行。只想要其中一支就只複製對應的 yml 即可。
 
 > GitHub Actions 免費額度：Private repo 每月 2000 分鐘，這個 workflow 每次約 2 分鐘，每月最多跑 22 天（交易日）= 44 分鐘，完全免費。
 
@@ -345,6 +424,7 @@ signal_score = round(
 ## 📐 系統架構
 
 ```
+【收盤後 14:30 — main.py 選股】
 ┌─────────────┐     ┌──────────────┐     ┌─────────────┐
 │ Google Sheet │────▶│  Python 腳本  │────▶│  Telegram   │
 │  (Watchlist) │     │              │     │  (通知推播)  │
@@ -354,12 +434,22 @@ signal_score = round(
 │   FinMind   │────▶│  4. 歷史回測   │────▶│ Google Sheet │
 │ (財報 + K線) │     │  5. 發通知     │     │  (Signals)  │
 └─────────────┘     └──────────────┘     └─────────────┘
-                           │
-                    ┌──────┴──────┐
-                    │ GitHub Actions│
-                    │ 每日 14:30   │
-                    │ 自動觸發      │
-                    └─────────────┘
+
+【盤前 08:00 — premarket.py 夜盤快報】
+┌─────────────┐     ┌──────────────┐     ┌─────────────┐
+│   FinMind   │────▶│  夜盤近月漲跌  │────▶│  Telegram   │
+│ (台指期夜盤) │     │  → 開盤方向    │     │ (盤前快報)   │
+└─────────────┘     │  + 疊加昨日訊號 │     └─────────────┘
+┌─────────────┐     │  (順風/逆風)   │
+│ Google Sheet │────▶│              │
+│  (Signals)  │     └──────────────┘
+└─────────────┘
+
+         ┌──────────────────────────┐
+         │       GitHub Actions      │
+         │  14:30 選股 / 08:00 夜盤   │
+         │       每交易日自動觸發      │
+         └──────────────────────────┘
 ```
 
 ---
@@ -368,18 +458,22 @@ signal_score = round(
 
 ```
 stock-strategies-only/
-├── main.py                    # 入口（串接整個流程）
+├── main.py                    # 入口①：收盤後 14:30 選股（串接整個流程）
+├── premarket.py               # 入口②：盤前 08:00 夜盤快報
 ├── stock_strategies/
-│   ├── config.py              # 策略參數 & 常數
+│   ├── config.py              # 策略參數 & 常數（含夜盤門檻）
 │   ├── sheet.py               # Google Sheet 讀寫
 │   ├── data.py                # FinMind API 資料抓取
+│   ├── market.py              # 大盤濾鏡（加權指數月線）
+│   ├── night_session.py       # 夜盤抓取 + 開盤方向分類
 │   ├── indicators.py          # 技術指標計算 + 評分
 │   ├── backtest.py            # 歷史回測
 │   ├── evaluate.py            # 綜合評估（組合以上模組）
 │   └── notify.py              # Telegram 格式化 + 發送
 ├── pyproject.toml             # Python 依賴管理（uv）
 ├── uv.lock                    # 鎖定版本
-├── daily.yml                  # GitHub Actions workflow
+├── daily.yml                  # GitHub Actions：收盤後選股（14:30）
+├── premarket.yml              # GitHub Actions：盤前夜盤快報（08:00）
 ├── .env.example               # 環境變數範本
 └── README.md
 ```
@@ -467,6 +561,10 @@ Private repo 每月免費 2000 分鐘，這個 workflow 每次約 2 分鐘，每
 ---
 
 ## 🛣️ Roadmap
+
+**✅ 最新完成**
+
+- [x] 🌙 **夜盤盤前快報** — 早上 08:00 讀台指期夜盤，預判今日開盤方向，疊加昨日訊號順風/逆風
 
 **🚧 進行中（下一個大版本）**
 

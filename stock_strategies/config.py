@@ -1,6 +1,9 @@
 FINMIND_URL = "https://api.finmindtrade.com/api/v4/data"
 TELEGRAM_API = "https://api.telegram.org/bot{token}/sendMessage"
 
+# 台指期在 FinMind 的 data_id（夜盤盤前快報用）
+FUTURES_ID = "TX"
+
 CONFIG = {
     "eps_threshold": 5.0,
     "roe_threshold": 15.0,
@@ -10,4 +13,7 @@ CONFIG = {
     "stop_loss": 0.08,
     "min_tech_score_for_signal": 60,
     "min_total_score_for_buy": 65,
+    # 夜盤開盤方向分類門檻（漲跌幅 %）
+    "night_gap_big": 1.5,    # |漲跌幅| ≥ 1.5% → 大漲 / 大跌
+    "night_gap_small": 0.5,  # 0.5 ~ 1.5% → 小漲 / 小跌；< 0.5% → 平盤
 }

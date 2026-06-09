@@ -146,6 +146,7 @@ def format_messages(
     signals: list[dict],
     watchlist: list[dict] = None,
     market: dict = None,
+    night_note: str = None,
 ) -> list[str]:
     """產生多則 Telegram 訊息"""
     buys = [s for s in signals if s.get("action") == "BUY"]
@@ -164,6 +165,11 @@ def format_messages(
     if market and market.get("note"):
         msg1.append("🎯 *大盤濾鏡*")
         msg1.append(market["note"])
+        msg1.append("")
+
+    if night_note:
+        msg1.append("🌙 *夜盤濾鏡*")
+        msg1.append(night_note)
         msg1.append("")
 
     msg1.append("🌡️ *市場氛圍*")
@@ -359,6 +365,61 @@ def _format_volume_block(s: dict) -> list[str]:
     if verdict:
         lines.append(f"  結論: {verdict}")
     return lines
+
+
+def format_premarket(night: dict | None, signals: list[dict]) -> str:
+    """夜盤盤前快報：夜盤方向預判 + 疊加昨日 BUY/WATCH 訊號。
+
+    night   — night_session.get_night_session() 的回傳（可能為 None）
+    signals — sheet.read_latest_signals() 的回傳（Sheet 扁平 dict，最新在最前）
+    """
+    from .night_session import tailwind_tag, bias_guidance
+
+    today = datetime.now()
+    wd = "一二三四五六日"[today.weekday()]
+    lines = [f"🌙 *夜盤盤前快報* {today.strftime('%Y/%m/%d')} (週{wd})", ""]
+
+    # === 夜盤方向預判 ===
+    if night:
+        lines.append(
+            f"{night['emoji']} *台指期夜盤 {night['pct']:+.2f}% "
+            f"({night['spread']:+.0f} 點)*"
+        )
+        lines.append(f"近月收 {night['close']:.0f} | 量 {night['volume']:,}")
+        if night["date"] != today.strftime("%Y-%m-%d"):
+            lines.append(f"_（資料時間：{night['date']} 夜盤）_")
+        lines.append(f"📈 開盤方向預判：*{night['label']}* → {night['direction']}")
+    else:
+        lines.append("⚠️ 夜盤資料暫時取不到，今日盤前以個股訊號為主")
+    lines.append("")
+
+    # === 疊加昨日訊號 ===
+    bias = night["bias"] if night else "flat"
+    tag = tailwind_tag(bias)
+    actionable = [
+        s for s in signals
+        if str(s.get("action", "")).upper() in ("BUY", "WATCH")
+    ]
+    if actionable:
+        latest_day = actionable[0].get("date", "")  # 最新在最前
+        batch = [s for s in actionable if s.get("date", "") == latest_day]
+        buys = [s for s in batch if str(s["action"]).upper() == "BUY"]
+        watches = [s for s in batch if str(s["action"]).upper() == "WATCH"]
+        lines.append(f"📋 *昨日訊號 × 夜盤對照* ({latest_day})")
+        for s in (buys + watches)[:12]:
+            act = str(s["action"]).upper()
+            dot = "🟢" if act == "BUY" else "🟡"
+            lines.append(
+                f"{dot} {act} {s.get('stock_id', '')} {s.get('name', '')} "
+                f"{s.get('signal_score', '')}分 · {tag}"
+            )
+        lines.append(f"↳ _{bias_guidance(bias)}_")
+    else:
+        lines.append("📋 昨日無 BUY/WATCH 訊號（或尚未跑過選股）")
+    lines.append("")
+
+    lines.append("💡 _夜盤僅領先參考，開盤後仍以實際量價為準_")
+    return "\n".join(lines)
 
 
 def format_message(signals: list[dict]) -> str:
