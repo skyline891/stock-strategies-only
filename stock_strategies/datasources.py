@@ -106,3 +106,30 @@ def get_valuation(stock_id: str, start: str, as_of: str | None = None) -> pd.Dat
     df["per"] = pd.to_numeric(df["per"], errors="coerce")
     keep = [c for c in ["date", "per", "pbr", "dividend_yield"] if c in df.columns]
     return df[keep].sort_values("date").reset_index(drop=True)
+
+
+def get_margin(stock_id: str, start: str, as_of: str | None = None) -> pd.DataFrame:
+    """融資融券（日）。回 date, margin_balance, short_balance,
+       margin_chg, short_chg, short_margin_ratio(券資比)。"""
+    try:
+        df = fetch_finmind_cached(
+            "TaiwanStockMarginPurchaseShortSale", stock_id, start, end_date=as_of
+        )
+    except FinMindRateLimitError:
+        return pd.DataFrame()
+    rename = {
+        "MarginPurchaseTodayBalance": "margin_balance",
+        "ShortSaleTodayBalance": "short_balance",
+    }
+    df = df.rename(columns=rename)
+    if df.empty or not _require_cols(df, ["date", "margin_balance", "short_balance"]):
+        return pd.DataFrame()
+    df = df.copy()
+    for c in ["margin_balance", "short_balance"]:
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+    df = df.sort_values("date").reset_index(drop=True)
+    df["margin_chg"] = df["margin_balance"].diff()
+    df["short_chg"] = df["short_balance"].diff()
+    df["short_margin_ratio"] = df["short_balance"] / df["margin_balance"].replace(0, pd.NA)
+    return df[["date", "margin_balance", "short_balance",
+               "margin_chg", "short_chg", "short_margin_ratio"]].reset_index(drop=True)
