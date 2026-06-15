@@ -103,3 +103,15 @@ def test_is_fresh_tolerates_weekend():
     assert cache._is_fresh("TaiwanStockPrice", "TEST_WK", None, today=monday) is True
     tuesday = pd.Timestamp("2026-06-16")    # 隔了週一(1個交易日)，該增量更新
     assert cache._is_fresh("TaiwanStockPrice", "TEST_WK", None, today=tuesday) is False
+
+
+def test_financial_statements_use_quarterly_freshness():
+    """財報季度更新：季報日(3/31)距今數十個交易日仍應視為新鮮，不每次重抓撞額度。"""
+    cache._write_cache("TaiwanStockFinancialStatements", "TEST_Q",
+                       pd.DataFrame({"date": pd.to_datetime(["2026-03-31"])}))  # Q1 季報日
+    assert cache._is_fresh("TaiwanStockFinancialStatements", "TEST_Q", None,
+                           today=pd.Timestamp("2026-06-15")) is True   # 兩個半月後仍新鮮
+    cache._write_cache("TaiwanStockBalanceSheet", "TEST_Q2",
+                       pd.DataFrame({"date": pd.to_datetime(["2026-03-31"])}))
+    assert cache._is_fresh("TaiwanStockBalanceSheet", "TEST_Q2", None,
+                           today=pd.Timestamp("2026-06-15")) is True

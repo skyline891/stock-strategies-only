@@ -112,6 +112,8 @@ def _rate_limited_get(params: dict, timeout: int, max_retries: int) -> dict:
 
 
 def _freq_of(dataset: str) -> str:
+    if dataset in ("TaiwanStockFinancialStatements", "TaiwanStockBalanceSheet"):
+        return "quarterly"          # 季報才更新，max_date 是季末日，不可當每日判過期
     if dataset == "TaiwanStockMonthRevenue":
         return "monthly"
     if dataset == "TaiwanStockShareholding":
