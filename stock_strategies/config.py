@@ -1,5 +1,24 @@
+import os
+from pathlib import Path
+
 FINMIND_URL = "https://api.finmindtrade.com/api/v4/data"
 TELEGRAM_API = "https://api.telegram.org/bot{token}/sendMessage"
+
+# ── 快取（parquet）──
+FINMIND_CACHE_DIR = os.environ.get(
+    "FINMIND_CACHE_DIR",
+    str(Path(__file__).resolve().parent.parent / ".cache" / "finmind"),
+)
+# 各頻率快取新鮮天數：超過則增量更新
+CACHE_FRESH_DAYS = {"daily": 1, "monthly": 20, "weekly": 5, "quarterly": 60, "static": 7}
+
+# ── 限流（FinMind 免費版約 600 req/hr）──
+FINMIND_MIN_INTERVAL = 0.12       # 相鄰請求最小間隔秒
+RATE_LIMIT_BACKOFF_BASE = 5       # 限流退避基數秒
+RATE_LIMIT_MAX_RETRIES = 4
+
+# ── context ──
+MIN_PRICE_ROWS = 60               # 少於此列數視為新股／資料不足
 
 # 台指期在 FinMind 的 data_id（夜盤盤前快報用）
 FUTURES_ID = "TX"
