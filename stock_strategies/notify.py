@@ -1,11 +1,11 @@
 import os
 import sys
-from datetime import datetime
 
 import numpy as np
 import requests
 
 from .config import CONFIG, TELEGRAM_API
+from .time_utils import taiwan_now
 
 
 def send_telegram(text: str):
@@ -152,7 +152,7 @@ def format_messages(
     buys = [s for s in signals if s.get("action") == "BUY"]
     watches = [s for s in signals if s.get("action") == "WATCH"]
     skips = [s for s in signals if s.get("action") in ("SKIP", "ERROR")]
-    today = datetime.now().strftime("%Y/%m/%d")
+    today = taiwan_now().strftime("%Y/%m/%d")
     total = len(signals)
     messages = []
 
@@ -375,7 +375,7 @@ def format_premarket(night: dict | None, signals: list[dict]) -> str:
     """
     from .night_session import tailwind_tag, bias_guidance
 
-    today = datetime.now()
+    today = taiwan_now()
     wd = "一二三四五六日"[today.weekday()]
     lines = [f"🌙 *夜盤盤前快報* {today.strftime('%Y/%m/%d')} (週{wd})", ""]
 

@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Optional
 
 import pandas as pd
@@ -9,6 +8,7 @@ from .indicators import add_indicators, tech_score_at
 from .backtest import backtest
 from .volume import detect_patterns, verdict as volume_verdict
 from .loader import merge_params
+from .time_utils import taiwan_date_str
 
 
 def evaluate(stock_id: str, name: str, strategy: dict | None = None) -> Optional[dict]:
@@ -18,7 +18,7 @@ def evaluate(stock_id: str, name: str, strategy: dict | None = None) -> Optional
     result = {
         "stock_id": stock_id,
         "name": name,
-        "date": datetime.now().strftime("%Y-%m-%d"),
+        "date": taiwan_date_str(),
         "strategy_id": (strategy or {}).get("id", "default"),
         "risk_notes": [],
     }

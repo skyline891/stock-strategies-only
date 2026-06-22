@@ -4,6 +4,11 @@ import json
 import gspread
 from google.oauth2.service_account import Credentials
 
+from .time_utils import taiwan_date_str, taiwan_iso
+
+
+RUN_LOG_HEADERS = ["report_key", "report_date", "status", "sent_at"]
+
 
 def get_gsheet():
     creds_json = os.environ["GOOGLE_CREDS_JSON"]
@@ -154,6 +159,49 @@ def read_latest_signals(limit: int = 50) -> list[dict]:
     if not rows:
         return []
     return rows[-limit:][::-1]  # 最新的在最前面
+
+
+def _get_run_log_ws():
+    sh = get_gsheet()
+    try:
+        ws = sh.worksheet("RunLog")
+    except gspread.WorksheetNotFound:
+        ws = sh.add_worksheet(title="RunLog", rows=1000, cols=len(RUN_LOG_HEADERS))
+        ws.append_row(RUN_LOG_HEADERS)
+        return ws
+
+    if not ws.get_all_values():
+        ws.append_row(RUN_LOG_HEADERS)
+    return ws
+
+
+def report_already_sent(report_key: str, report_date: str | None = None) -> bool:
+    """Return True if this report was already sent for the Taiwan market date."""
+    report_date = report_date or taiwan_date_str()
+    try:
+        rows = _get_run_log_ws().get_all_records()
+    except Exception:
+        # If RunLog is temporarily unavailable, avoid suppressing the report.
+        return False
+    for row in rows:
+        if (
+            str(row.get("report_key", "")).strip() == report_key
+            and str(row.get("report_date", "")).strip() == report_date
+            and str(row.get("status", "")).strip().upper() == "SENT"
+        ):
+            return True
+    return False
+
+
+def mark_report_sent(
+    report_key: str,
+    report_date: str | None = None,
+    sent_at: str | None = None,
+) -> None:
+    """Record a sent report in RunLog."""
+    report_date = report_date or taiwan_date_str()
+    sent_at = sent_at or taiwan_iso()
+    _get_run_log_ws().append_row([report_key, report_date, "SENT", sent_at])
 
 
 PERFORMANCE_HEADERS = [

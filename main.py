@@ -26,6 +26,8 @@ from stock_strategies.sheet import (
     append_signals,
     read_performance,
     write_performance,
+    report_already_sent,
+    mark_report_sent,
 )
 from stock_strategies.evaluate import evaluate
 from stock_strategies.notify import send_telegram, format_messages
@@ -36,6 +38,7 @@ from stock_strategies.night_session import (
     night_filter_note,
 )
 from stock_strategies.performance import update_performance, summary as perf_summary
+from stock_strategies.time_utils import taiwan_date_str
 
 
 REQUIRED_ENV = [
@@ -52,6 +55,11 @@ def main():
     if missing:
         print(f"❌ 缺少環境變數: {missing}", file=sys.stderr)
         sys.exit(1)
+
+    report_date = taiwan_date_str()
+    if report_already_sent("daily_signal", report_date):
+        print(f"✅ {report_date} 每日報告已推播過，略過重複排程")
+        return
 
     # 1. 讀取 watchlist
     print(f"[{datetime.now()}] 讀取 watchlist...")
@@ -130,6 +138,8 @@ def main():
     # 8. 若有累積的成績單，額外推一則摘要
     if stats and stats["count"] >= 5:
         send_telegram(_format_perf_message(stats))
+
+    mark_report_sent("daily_signal", report_date)
 
     print("✅ 完成")
 
