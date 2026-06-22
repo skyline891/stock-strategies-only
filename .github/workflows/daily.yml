@@ -2,9 +2,16 @@ name: V3 Daily Signal
 
 on:
   schedule:
-    # 台灣時間 14:30 = UTC 06:30 (台股收盤後)
-    - cron: '30 6 * * 1-5'
+    # 台灣時間 14:37 / 15:17 / 16:07 / 17:07（收盤後備援；RunLog 防重複）
+    - cron: '37 6 * * 1-5'
+    - cron: '17 7 * * 1-5'
+    - cron: '7 8 * * 1-5'
+    - cron: '7 9 * * 1-5'
   workflow_dispatch:  # 允許手動觸發測試
+
+concurrency:
+  group: v3-daily-signal-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   run-signal:
