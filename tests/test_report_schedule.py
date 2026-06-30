@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 import gspread
+import pytest
 
 from stock_strategies import sheet
 from stock_strategies.time_utils import taiwan_date_str
@@ -60,3 +61,13 @@ def test_report_log_marks_report_sent_once(monkeypatch):
         sheet.RUN_LOG_HEADERS,
         ["premarket", "2026-06-23", "SENT", "2026-06-23T06:37:00+08:00"],
     ]
+
+
+def test_report_log_check_fails_closed_when_runlog_unavailable(monkeypatch):
+    def fail_to_open_sheet():
+        raise RuntimeError("google sheet unavailable")
+
+    monkeypatch.setattr(sheet, "get_gsheet", fail_to_open_sheet)
+
+    with pytest.raises(RuntimeError, match="google sheet unavailable"):
+        sheet.report_already_sent("premarket", "2026-06-23")

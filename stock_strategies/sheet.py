@@ -178,11 +178,7 @@ def _get_run_log_ws():
 def report_already_sent(report_key: str, report_date: str | None = None) -> bool:
     """Return True if this report was already sent for the Taiwan market date."""
     report_date = report_date or taiwan_date_str()
-    try:
-        rows = _get_run_log_ws().get_all_records()
-    except Exception:
-        # If RunLog is temporarily unavailable, avoid suppressing the report.
-        return False
+    rows = _get_run_log_ws().get_all_records()
     for row in rows:
         if (
             str(row.get("report_key", "")).strip() == report_key
