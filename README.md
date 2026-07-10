@@ -1,5 +1,11 @@
 # 📈 台股每日選股機器人
 
+<p align="center">
+  <img src="assets/readme_banner_v2.png" alt="台股每日選股機器人 Banner" width="60%" />
+</p>
+
+- TODO: 嚴謹回測機制
+
 > ✅ **現有版本穩定、開箱即用** — 每日選股、🌙 夜盤盤前快報、策略庫 Web UI 全部正常運作，`uv run python main.py` 直接跑即可，不需要任何額外設定。
 >
 > 🏗️ **另外有一個進行中的進階升級（V3.4）** — 正在打造「多流派因子 × 持有週期 × regime 自適應」的新選股引擎（地基已完成、105 測試全綠）。**這個升級完成前，完全不影響你現在的使用**——你照用穩定版，升級好了才會無痛接上。好奇的話 → [🏗️ V3.4 章節](#️-v34進行中--多角色股市策略系統重構)
@@ -19,6 +25,24 @@
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?logo=python&logoColor=white)](#)
 [![Telegram](https://img.shields.io/badge/通知-Telegram_Bot-26A5E4?logo=telegram&logoColor=white)](#-telegram-通知範例)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+---
+
+## ⚡ 最快啟用：每天自動推 Telegram
+
+這個 repo 已內建 GitHub Actions。Fork 後不用租伺服器，只要設定 secrets，就能每天自動跑。
+
+1. 到 fork 後的 repo → **Settings** → **Secrets and variables** → **Actions** → **Secrets**，新增：
+   - `FINMIND_TOKEN`
+   - `TELEGRAM_BOT_TOKEN`
+   - `TELEGRAM_CHAT_ID`
+   - `GOOGLE_SHEET_ID`
+   - `GOOGLE_CREDS_JSON`
+2. 到 **Actions** → **Telegram Smoke Test** → **Run workflow**。
+3. Telegram 收到測試訊息後，再跑 **V3 Daily Signal**。
+4. 測試成功後，每個交易日台灣時間 **14:37 / 15:17 / 16:07 / 17:07** 會備援執行選股推播；**06:37 / 07:17 / 08:07 / 08:47** 會備援執行夜盤盤前快報，RunLog 只會送出當天第一份成功報告。
+
+如果 Telegram 沒收到，先看 [Step 7：GitHub Actions 自動排程](#step-7github-actions-自動排程) 的錯誤對照表。注意：這五個值都要放在 **Secrets**，不是 Variables。
 
 ---
 
@@ -188,14 +212,7 @@ print('composite =', round(compute_all_factors(ctx, fl, {})['composite'], 3))
 uv run python premarket.py
 ```
 
-要排程自動跑，把 `premarket.yml` 一起搬進 `.github/workflows/`（secret 跟 `daily.yml` 共用，不用另外設）：
-
-```bash
-cp premarket.yml .github/workflows/premarket.yml
-git add . && git commit -m "setup: enable premarket workflow" && git push
-```
-
-之後每個交易日盤前自動推播。GitHub Actions 目前設定為**台灣時間 06:37 / 07:17 / 08:07 / 08:47** 備援觸發（夜盤 05:00 收完、開盤 09:00 前），RunLog 只允許當天第一個成功執行的快報送出一次。週一會自動抓到上週五的夜盤；若夜盤資料還沒更新，會取最近一筆並標明資料日期。
+排程已內建在 `.github/workflows/premarket.yml`。設定好 GitHub Actions secrets 後，到 **Actions** → **Premarket Night Session** → **Run workflow** 手動測一次；成功後，GitHub Actions 會在每個交易日**台灣時間 06:37 / 07:17 / 08:07 / 08:47**備援觸發（夜盤 05:00 收完、開盤 09:00 前），RunLog 只允許當天第一個成功執行的快報送出一次。週一會自動抓到上週五的夜盤；若夜盤資料還沒更新，會取最近一筆並標明資料日期。
 
 > 微調門檻：改 `stock_strategies/config.py` 的 `night_gap_big`（大漲/大跌界線，預設 1.5%）與 `night_gap_small`（平盤界線，預設 0.5%）。
 
@@ -348,7 +365,9 @@ uv run python main.py
 
 ### Step 7：GitHub Actions 自動排程
 
-到你 fork 的 repo → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**，加入五個 secret：
+到你 fork 的 repo → **Settings** → **Secrets and variables** → **Actions**。
+
+請切到 **Secrets** 分頁，按 **New repository secret**，加入五個 secret：
 
 | Secret 名稱 | 值 |
 |---|---|
@@ -358,16 +377,31 @@ uv run python main.py
 | `GOOGLE_SHEET_ID` | 你的 Google Sheet ID |
 | `GOOGLE_CREDS_JSON` | Service Account JSON **整串貼進去** |
 
-把 workflow 搬到正確位置（兩支共用同一組 secret）：
+> 不要把這五個值填到 **Variables**。本 repo 的 workflow 讀的是 `${{ secrets.FINMIND_TOKEN }}` 這種 `secrets.*`，如果填到 Variables，Actions 會顯示 `Missing ...` 或在執行時讀不到 token。Variables 只適合放非敏感設定，例如未來如果要自訂掃描檔數、策略名稱、debug 開關，才放那邊。
 
-```bash
-mkdir -p .github/workflows
-cp daily.yml .github/workflows/daily.yml          # 收盤後備援選股
-cp premarket.yml .github/workflows/premarket.yml  # 盤前備援夜盤快報
-git add . && git commit -m "setup: enable daily + premarket workflow" && git push
-```
+本 repo 已內建三支 workflow：
 
-到 **Actions** 分頁點 **Run workflow** 各手動跑一次測試。沒問題後，每個交易日**台灣時間 14:37 / 15:17 / 16:07 / 17:07**（選股）與 **06:37 / 07:17 / 08:07 / 08:47**（夜盤快報）會備援觸發；RunLog 會防止同一天重複推播。只想要其中一支就只複製對應的 yml 即可。
+| Workflow | 用途 | 觸發 |
+|---|---|---|
+| `Telegram Smoke Test` | 只測 Telegram token / chat id 是否正確 | 手動 |
+| `V3 Daily Signal` | 收盤後跑 `main.py` 選股並推 Telegram | 每交易日台灣時間 14:37 / 15:17 / 16:07 / 17:07 / 手動 |
+| `Premarket Night Session` | 盤前跑 `premarket.py` 夜盤快報 | 每交易日台灣時間 06:37 / 07:17 / 08:07 / 08:47 / 手動 |
+
+先到 **Actions** → **Telegram Smoke Test** → **Run workflow**。如果 Telegram 收得到測試訊息，代表 `TELEGRAM_BOT_TOKEN` / `TELEGRAM_CHAT_ID` 正確。
+
+接著到 **Actions** → **V3 Daily Signal** → **Run workflow** 手動跑一次完整選股。需要夜盤快報的話，再手動測一次 **Premarket Night Session**。兩支排程會依上表時間備援觸發，RunLog 會防止同一天重複推播。
+
+> 如果看不到 workflow，確認檔案在 default branch 的 `.github/workflows/` 目錄下，並到 repo 的 **Actions** 分頁啟用 GitHub Actions。
+
+常見錯誤：
+
+| Actions 錯誤 | 通常原因 | 怎麼處理 |
+|---|---|---|
+| `Missing TELEGRAM_BOT_TOKEN` | secret 沒設或名稱拼錯 | 到 repo 的 Actions secrets 新增同名 secret |
+| `401 Unauthorized` | Telegram bot token 錯 | 回 @BotFather 重新複製 token |
+| `400 chat not found` | `TELEGRAM_CHAT_ID` 錯，或你還沒打開 bot | 先對你的 bot 按 `/start`，再重新查 chat id |
+| `讀取 watchlist 失敗` | Google Sheet secret 或分享權限錯 | 確認 `GOOGLE_CREDS_JSON` 是整串 JSON，且 service account email 已被加到 Sheet 編輯者 |
+| FinMind request/rate limit | `FINMIND_TOKEN` 錯或 API 額度暫時被打滿 | 確認 token，稍後重跑 workflow |
 
 > GitHub Actions 免費額度：Private repo 每月 2000 分鐘，這個 workflow 每次約 2 分鐘，每月最多跑 22 天（交易日）= 44 分鐘，完全免費。
 
@@ -543,8 +577,12 @@ stock-strategies-only/
 │   └── notify.py              # Telegram 格式化 + 發送
 ├── pyproject.toml             # Python 依賴管理（uv）
 ├── uv.lock                    # 鎖定版本
-├── daily.yml                  # GitHub Actions：收盤後備援選股
-├── premarket.yml              # GitHub Actions：盤前備援夜盤快報
+├── .github/workflows/
+│   ├── daily.yml              # GitHub Actions：收盤後備援選股
+│   ├── premarket.yml          # GitHub Actions：盤前備援夜盤快報
+│   └── telegram-smoke-test.yml # 手動測 Telegram secret 是否正確
+├── daily.yml                  # workflow 範本：收盤後選股
+├── premarket.yml              # workflow 範本：盤前夜盤快報
 ├── .env.example               # 環境變數範本
 └── README.md
 ```
@@ -661,3 +699,4 @@ Private repo 每月免費 2000 分鐘，這個 workflow 每次約 2 分鐘，每
 ## ⚠️ 免責聲明
 
 本專案僅供**學習與研究**用途。程式產生的訊號**不構成投資建議**。股票投資有風險，任何交易決策請自行判斷並承擔責任。過去的回測表現不代表未來的獲利保證。
+
